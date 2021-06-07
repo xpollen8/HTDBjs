@@ -84,7 +84,10 @@ module.exports = class HTDB {
 	}
 
 	render = async (page = 'index.html') => {
-		await this.load();
+		if (!Object.keys(this.defines).length) {
+			this.log("Render is doing load..");
+			await this.load();
+		}
 		this.log("DEFINES", page, this.defines[page] );
 		return this.substitute(this.defines[page] || {});
 	}
