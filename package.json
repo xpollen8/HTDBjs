@@ -1,0 +1,25 @@
+{
+  "name": "HTDBjs",
+  "version": "0.0.1",
+  "description": "HTDB, but in JS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xpollen8/HTDBjs.git"
+  },
+  "author": "david whittemore",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/xpollen8/HTDBjs/issues"
+  },
+  "homepage": "https://github.com/xpollen8/HTDBjs#readme",
+  "dependencies": {
+    "fs": "0.0.1-security"
+  },
+  "devDependencies": {
+    "jest": "^27.0.4"
+  }
+}
