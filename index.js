@@ -1,12 +1,13 @@
 // TODO - figure out 'static' and 'macros' persistence
 // perhaps add a '!{}' to not evaluate
 module.exports = class HTDB {
-	constructor(debug = 0) {
+	constructor(file = './site.htdb', debug = 0) {
+		this.file = file;
 		this.debug = debug;
+		this.loaded = false;
+		this.funcs = {};
+		this.defines = {};
 	}
-
-	funcs = {};
-	defines = {};
 
 	log = (...args) => {
 		if (this.debug) {
@@ -15,6 +16,10 @@ module.exports = class HTDB {
 	}
 
 	error = (...args) => console.error(...args);
+
+	define = ({ name, body }) => {
+		this.defines[name] = { name, body };
+	}
 
 	parseDefine = (inStr = '') => {
 		const instr = (str, regex) => (str.substr(0).match(regex) || {}).index;
@@ -51,20 +56,18 @@ module.exports = class HTDB {
 				this.log("DEF", str);
 				const name = str.substr(0, Whitespace);
 				const body = str.substr(Whitespace).trim();
-				this.defines[name] = {
-					name, body
-				}
+				this.define({ name, body });
 			}
 		} else {
 			this.error("SYNTAX ERROR", str);
 		}
 	}
 
-	parse = (all = '') => {
-		all.split(/(^|\n)#define/).filter(s => s.length > 1).map(this.parseDefine);
+	parse = async (all = '') => {
+		await Promise.all(all.split(/(^|\n)#define/).filter(s => s.length > 1).map(this.parseDefine));
 	}
 
-	read = (file) => {
+	read = async (file) => {
 		try {
 			const fs = require('fs');
 			return fs.readFileSync(file, 'utf-8');
@@ -73,12 +76,15 @@ module.exports = class HTDB {
 		}
 	}
 
-	load = (file) => {
-		this.parse(this.read(file));
+	load = async () => {
+		if (!this.loaded) {
+			await this.parse(await this.read(this.file));
+			this.loaded = true;
+		}
 	}
 
-	render = (file = 'site.htdb', page = 'index.html') => {
-		this.load(file);
+	render = async (page = 'index.html') => {
+		await this.load();
 		this.log("DEFINES", page, this.defines[page] );
 		return this.substitute(this.defines[page] || {});
 	}

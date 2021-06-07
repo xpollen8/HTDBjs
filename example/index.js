@@ -1,3 +1,5 @@
-const HTDBjs = require('../index');
-const htdb = new HTDBjs(0);
-console.log(htdb.render('./site.htdb'));
+(async () => {
+	const HTDBjs = require('../index');
+	const htdb = new HTDBjs('./site.htdb', 0);
+	console.log(await htdb.render());
+})();
