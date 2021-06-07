@@ -24,6 +24,10 @@ module.exports = class HTDB {
 		}
 	}
 
+	getval = (name) => {
+		return (this.defines[name] || {}).body;
+	}
+
 	include = (file = '') => {
 		if (file.length) {
 			this.log("INCLUDE", { file: this.eval(file) });
