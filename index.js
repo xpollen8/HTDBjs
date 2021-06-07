@@ -63,8 +63,8 @@ module.exports = class HTDB {
 		}
 	}
 
-	parse = async (all = '') => {
-		await Promise.all(all.split(/(^|\n)#define/).filter(s => s.length > 1).map(this.parseDefine));
+	parse = (all = '') => {
+		all.split(/(^|\n)#define/).filter(s => s.length > 1).map(this.parseDefine);
 	}
 
 	read = async (file) => {
@@ -78,7 +78,7 @@ module.exports = class HTDB {
 
 	load = async () => {
 		if (!this.loaded) {
-			await this.parse(await this.read(this.file));
+			this.parse(await this.read(this.file));
 			this.loaded = true;
 		}
 	}
