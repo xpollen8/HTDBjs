@@ -1,5 +1,6 @@
 // TODO - figure out 'static' and 'macros' persistence
 // perhaps add a '!{}' to not evaluate
+// now that classes are callable in script, should probably
 module.exports = class HTDB {
 	constructor(file = 'site.htdb', debug = 0) {
 		this.file = `./htdb/${file}`;
@@ -11,7 +12,7 @@ module.exports = class HTDB {
 
 	log = (...args) => {
 		if (this.debug) {
-			console.log(...args);
+			console.log('log', ...args);
 		}
 	}
 
@@ -24,9 +25,27 @@ module.exports = class HTDB {
 		}
 	}
 
-	getval = (name) => {
-		return (this.defines[name] || {}).body;
+	eval = (args) => {
+		this.log("EVAL!", args);
+		return args;
 	}
+
+	morse = (args) => {
+		return `MORSE ${args}`;
+	}
+
+	random = (args) => parseInt(Math.random() * parseInt(args));
+
+	getval = (name) => (this.defines[name] || {}).body;
+
+	callables = [
+		'log',
+		'define',
+		'eval',
+		'morse',
+		'random',
+		'getval',
+	];
 
 	include = (file = '') => {
 		if (file.length) {
@@ -132,22 +151,13 @@ module.exports = class HTDB {
 		}
 	}
 
-	eval = (str = '') => {
-		if (str.includes('#live') || str.includes('${')) {
-			this.log('TODO: eval(', str, ')');
-			return this.substitute(str);
-		} else {
-			return str;
-		}
-	}
-
 	render = async (page = 'index.html') => {
 		if (!Object.keys(this.defines).length) {
 			this.log("Render is doing load..");
 			await this.load();
 		}
 		this.log("RENDER", page, this.defines[page] );
-		return this.eval((this.defines[page] || {}).body);
+		return this.substitute((this.defines[page] || {}).body || page);
 	}
 
 	substitute = (body = '') => {
@@ -171,6 +181,14 @@ module.exports = class HTDB {
 						const [ j, r ] = substitute_str(lookup.body)
 						return [ i+1, r ];
 					} else {
+						const [ func ] = result.split('(');
+						if (func.length) {
+							if (this.callables.includes(func)) {
+								const args = result.substr(func.length);
+								//console.log("CALL", { func, args });
+								return [ i+1, this[func](args.substr(1, args.length - 2)) ];
+							}
+						}
 						return [ i+1, '${' + result + '}' ];
 					}
 				} else {
@@ -180,6 +198,10 @@ module.exports = class HTDB {
 			}
 			return [ i, result ];
 		}
-		return substitute_str(body)[1];
+		if (body.includes('#live') || body.includes('${')) {
+			return substitute_str(body)[1];
+		} else {
+			return body;
+		}
 	}
 }
