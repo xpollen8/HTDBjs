@@ -17,10 +17,18 @@ module.exports = class HTDB {
 
 	error = (...args) => console.error(...args);
 
-	define = ({ name, body }) => {
-		this.defines[name] = { name, body };
+	define = ({ name = '', body = '' }) => {
+		if (name.length) {
+			this.log("DEF", { name, body });
+			this.defines[name] = { name, body };
+		}
 	}
 
+	/*
+		TODO:
+			ignore #live outside of defs
+			ignore literalized '\)' in functionarglist
+	 */
 	parseDefine = (inStr = '') => {
 		const instr = (str, regex) => (str.substr(0).match(regex) || {}).index;
 		const whitespace = (str) => instr(str, /[ \t\n]/);
@@ -29,7 +37,7 @@ module.exports = class HTDB {
 
 		const str = inStr.trim();
 		const Lparen = lparen(str);
-		const Rparen = rparen(str);	// TODO ignore literalized '\)' in arglist (uncommon)
+		const Rparen = rparen(str);
 		const Whitespace = whitespace(str);
 		if (Whitespace) {
 			if (Whitespace > Lparen && Lparen && Rparen) {
@@ -47,24 +55,33 @@ module.exports = class HTDB {
 							name, args, body
 						}
 					} else {
-						this.error("SYNTAX ERROR: function", str, { Rparen, WhiteAfterParen });
+						this.error("SYNTAX ERROR: function", { str, Rparen, WhiteAfterParen });
 					}
 				} else {
-					this.error("SYNTAX ERROR: function", str);
+					this.error("SYNTAX ERROR: function", { str });
 				}
 			} else {
-				this.log("DEF", str);
 				const name = str.substr(0, Whitespace);
 				const body = str.substr(Whitespace).trim();
 				this.define({ name, body });
 			}
 		} else {
-			this.error("SYNTAX ERROR", str);
+			this.error("SYNTAX ERROR", { str });
 		}
 	}
 
-	parse = (all = '') => {
-		all.split(/(^|\n)#define/).filter(s => s.length > 1).map(this.parseDefine);
+	parse = (str = '') => {
+		const cleanDefine = (str) => {
+			const clean = str.split('\n').filter(s => {
+				const trimmed = s.trim();
+				const toss = (trimmed.length <= 1) ||						// keep non-empty lines
+				(trimmed.substr(0, 1) === '#') ?	// eat comments
+					!(['#live','#include'].filter(d => trimmed.substr(0, d.length) === d).length) : 0;
+				return !toss;
+			}).join('\n');
+			return clean.trim();
+		}
+		str.split(/(^|\n)#define/).map(cleanDefine).filter(f => f).forEach(this.parseDefine);
 	}
 
 	read = async (file) => {
@@ -88,7 +105,7 @@ module.exports = class HTDB {
 			this.log("Render is doing load..");
 			await this.load();
 		}
-		this.log("DEFINES", page, this.defines[page] );
+		this.log("RENDER", page, this.defines[page] );
 		return this.substitute(this.defines[page] || {});
 	}
 
@@ -109,7 +126,7 @@ module.exports = class HTDB {
 						const [ j, r ] = substitute_str(lookup.body)
 						return [ i+1, r ];
 					} else if ((lookup = this.defines[result])) {
-						this.log("DEF", result);
+						this.log("DEF1", result);
 						const [ j, r ] = substitute_str(lookup.body)
 						return [ i+1, r ];
 					} else {
