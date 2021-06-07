@@ -1,8 +1,8 @@
 // TODO - figure out 'static' and 'macros' persistence
 // perhaps add a '!{}' to not evaluate
 module.exports = class HTDB {
-	constructor(file = './site.htdb', debug = 0) {
-		this.file = file;
+	constructor(file = 'site.htdb', debug = 0) {
+		this.file = `./htdb/${file}`;
 		this.debug = debug;
 		this.loaded = false;
 		this.funcs = {};
