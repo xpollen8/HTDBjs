@@ -1,9 +1,18 @@
 // TODO - figure out 'static' and 'macros' persistence
 // perhaps add a '!{}' to not evaluate
-// now that classes are callable in script, should probably
 module.exports = class HTDB {
-	constructor(file = 'site.htdb', debug = 0) {
-		this.file = `./htdb/${file}`;
+	#file;
+
+	#fileToPath = (file = 'site.htdb') => {
+		const sanitize = require("sanitize-filename");
+		const [ clean ] = file.split(/[;&`'"]/g).join('')	// remove chars we don't want
+			.split('/').map(f => sanitize(f))	// send remaining through sanitizer
+			.filter(f => f && f !== '..').join('/').split(' '); // and take 1st args on split
+		return `htdb/${clean}`;
+	}
+
+	constructor(file, debug = 0) {
+		this.#file = file;
 		this.debug = debug;
 		this.loaded = false;
 		this.funcs = {};
@@ -18,6 +27,32 @@ module.exports = class HTDB {
 
 	error = (...args) => console.error(...args);
 
+	// BEGIN SILLY FUNCTIONS
+
+	morse = (args) => {
+		return `MORSE ${args}`;
+	}
+
+	itor = (val) => {
+		/// https://www.w3resource.com/javascript-exercises/javascript-math-exercise-21.php
+		const num = parseInt(val);
+		if (typeof num !== 'number') { return '0' }
+
+		const digits = String(+num).split("");
+		const key = ["","C","CC","CCC","CD","D","DC","DCC","DCCC","CM",
+			"","X","XX","XXX","XL","L","LX","LXX","LXXX","XC",
+			"","I","II","III","IV","V","VI","VII","VIII","IX"];
+		let roman_num = "";
+		let i = 3;
+		while (i--) {
+			roman_num = (key[+digits.pop() + (i * 10)] || "") + roman_num;
+		}
+		const res = Array(+digits.join("") + 1).join("M") + roman_num;
+		//console.log("ROMAN", { val, res });
+		return res;
+	}
+	// END SILLY FUNCTIONS
+
 	define = ({ name = '', body = '' }) => {
 		if (name.length) {
 			this.log("DEF", { name, body });
@@ -26,12 +61,8 @@ module.exports = class HTDB {
 	}
 
 	eval = (args) => {
-		this.log("EVAL!", args);
-		return args;
-	}
-
-	morse = (args) => {
-		return `MORSE ${args}`;
+		this.log("EVAL!", { args, res: eval(new String(args).toString()) });
+		return eval(new String(args).toString());
 	}
 
 	random = (args) => parseInt(Math.random() * parseInt(args));
@@ -39,18 +70,22 @@ module.exports = class HTDB {
 	getval = (name) => (this.defines[name] || {}).body;
 
 	callables = [
+		'itor',
 		'log',
 		'define',
 		'eval',
 		'morse',
 		'random',
 		'getval',
+		'include',
 	];
 
-	include = (file = '') => {
-		if (file.length) {
-			this.log("INCLUDE", { file: this.eval(file) });
-			//this.defines[name] = { name, body };
+	include = async (file = '') => {
+		const path = this.#fileToPath(file);
+		if (path) {
+			const evalPath = await this.substitute(path);
+			this.log("INCLUDE", { evalPath });
+			this.parse(await this.#read(evalPath));
 		}
 	}
 
@@ -135,10 +170,10 @@ module.exports = class HTDB {
 		return splitBy(str, "#define|#include").map(cleanDefine).filter(f => f).forEach(this.parseDefine);
 	}
 
-	read = async (file) => {
+	#read = async (file) => {
 		try {
 			const fs = require('fs');
-			return fs.readFileSync(file, 'utf-8');
+			return fs.readFileSync(this.#fileToPath(file), 'utf-8');
 		} catch(e) {
 			this.error("HTDB.render", e.message);
 		}
@@ -146,7 +181,9 @@ module.exports = class HTDB {
 
 	load = async () => {
 		if (!this.loaded) {
-			this.parse(await this.read(this.file));
+			this.parse(await this.#read('static.htdb'));
+			//this.parse(await this.#read('macros.htdb'));
+			this.parse(await this.#read(this.#file));
 			this.loaded = true;
 		}
 	}
@@ -156,16 +193,15 @@ module.exports = class HTDB {
 			this.log("Render is doing load..");
 			await this.load();
 		}
-		this.log("RENDER", page, this.defines[page] );
-		return this.substitute((this.defines[page] || {}).body || page);
+		return await this.substitute((this.defines[page] || {}).body || page);
 	}
 
-	substitute = (body = '') => {
-		const substitute_str = (s, i=0) => {
+	substitute = async (body = '') => {
+		const substitute_str = async (s, i=0) => {
 			let result = '';
 			while (i < s.length)  {
 				if (s[i] === '$' && s[i + 1] === '{') {
-					const [ j, r ] = substitute_str(s, i+2)
+					const [ j, r ] = await substitute_str(s, i+2)
 					i = j;
 					result += r;
 				} else if ( s[i] === '}' && s[i + 1] !== '\\') {
@@ -174,11 +210,12 @@ module.exports = class HTDB {
 					if (isFunc && (lookup = this.funcs[isFunc[1]])) {
 						// TODO - handle argument substitution
 						this.log("FUNC", result);
-						const [ j, r ] = substitute_str(lookup.body)
+						const [ j, r ] = await substitute_str(lookup.body)
 						return [ i+1, r ];
 					} else if ((lookup = this.defines[result])) {
-						this.log("DEF1", result);
-						const [ j, r ] = substitute_str(lookup.body)
+						//this.log("DEF1", result);
+						const [ j, r ] = await substitute_str(lookup.body)
+						//this.log("BACK", r);
 						return [ i+1, r ];
 					} else {
 						const [ func ] = result.split('(');
@@ -186,7 +223,10 @@ module.exports = class HTDB {
 							if (this.callables.includes(func)) {
 								const args = result.substr(func.length);
 								//console.log("CALL", { func, args });
-								return [ i+1, this[func](args.substr(1, args.length - 2)) ];
+								const res = await this[func](args.substr(1, args.length - 2)) ;
+								//console.log("BACK", res);
+								//return [ i+1, this[func](args.substr(1, args.length - 2)) ];
+								return [ i+1, res ];
 							}
 						}
 						return [ i+1, '${' + result + '}' ];
@@ -199,7 +239,7 @@ module.exports = class HTDB {
 			return [ i, result ];
 		}
 		if (body.includes('#live') || body.includes('${')) {
-			return substitute_str(body)[1];
+			return (await substitute_str(body))[1];
 		} else {
 			return body;
 		}
