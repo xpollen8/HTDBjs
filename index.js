@@ -69,7 +69,6 @@ module.exports = class HTDB {
 			} else {
 				const name = str.substr(0, Whitespace);
 				const body = str.substr(Whitespace).trim();
-				console.log("PARSE", { type, name, body });
 				if (type === '#include') {
 					this.include(body);
 				} else {
@@ -99,7 +98,7 @@ module.exports = class HTDB {
 		const cleanDefine = (str = '') => {
 			const clean = str.split('\n').filter(s => {
 				const trimmed = s.trim();
-				console.log("S", { s });
+				this.log("S", { s });
 				const toss = (trimmed.length <= 1) ||						// keep non-empty lines
 				(trimmed.substr(0, 1) === '#') ?	// eat comments
 					!(['#define', '#include', '#live'].filter(d => trimmed.substr(0, d.length) === d).length) : 0;
@@ -131,7 +130,7 @@ module.exports = class HTDB {
 
 	eval = (str = '') => {
 		if (str.includes('#live') || str.includes('${')) {
-			console.log('TODO: eval(', str, ')');
+			this.log('TODO: eval(', str, ')');
 			return this.substitute(str);
 		} else {
 			return str;
@@ -140,8 +139,8 @@ module.exports = class HTDB {
 
 	render = async (page = 'index.html') => {
 		if (!Object.keys(this.defines).length) {
-			//this.log("Render is doing load..");
-			//await this.load();
+			this.log("Render is doing load..");
+			await this.load();
 		}
 		this.log("RENDER", page, this.defines[page] );
 		return this.eval((this.defines[page] || {}).body);
