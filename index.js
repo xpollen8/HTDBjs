@@ -24,18 +24,24 @@ module.exports = class HTDB {
 		}
 	}
 
+	include = (file = '') => {
+		if (file.length) {
+			this.log("INCLUDE", { file: this.eval(file) });
+			//this.defines[name] = { name, body };
+		}
+	}
+
 	/*
 		TODO:
-			ignore #live outside of defs
 			ignore literalized '\)' in functionarglist
 	 */
-	parseDefine = (inStr = '') => {
+	parseDefine = ({ type, body = '' }) => {
 		const instr = (str, regex) => (str.substr(0).match(regex) || {}).index;
 		const whitespace = (str) => instr(str, /[ \t\n]/);
 		const lparen = (str) => instr(str, /\(/);
 		const rparen = (str) => instr(str, /\)/);
 
-		const str = inStr.trim();
+		const str = body.trim();
 		const Lparen = lparen(str);
 		const Rparen = rparen(str);
 		const Whitespace = whitespace(str);
@@ -63,7 +69,12 @@ module.exports = class HTDB {
 			} else {
 				const name = str.substr(0, Whitespace);
 				const body = str.substr(Whitespace).trim();
-				this.define({ name, body });
+				console.log("PARSE", { type, name, body });
+				if (type === '#include') {
+					this.include(body);
+				} else {
+					this.define({ name, body });
+				}
 			}
 		} else {
 			this.error("SYNTAX ERROR", { str });
@@ -71,17 +82,35 @@ module.exports = class HTDB {
 	}
 
 	parse = (str = '') => {
-		const cleanDefine = (str) => {
+		const splitBy = (text, delimiter) => {
+			// https://exceptionshub.com/javascript-and-regex-split-string-and-keep-the-separator.html
+			const delimiterPATTERN = '(' + delimiter + ')';
+			const delimiterRE = new RegExp(delimiterPATTERN, 'g');
+
+			return text.split(delimiterRE).reduce((chunks, item) => {
+				if (item.match(delimiterRE)){
+					chunks.push(item)
+				} else {
+					chunks[chunks.length - 1] += item
+				};
+				return chunks
+			}, [])
+		}
+		const cleanDefine = (str = '') => {
 			const clean = str.split('\n').filter(s => {
 				const trimmed = s.trim();
+				console.log("S", { s });
 				const toss = (trimmed.length <= 1) ||						// keep non-empty lines
 				(trimmed.substr(0, 1) === '#') ?	// eat comments
-					!(['#live','#include'].filter(d => trimmed.substr(0, d.length) === d).length) : 0;
+					!(['#define', '#include', '#live'].filter(d => trimmed.substr(0, d.length) === d).length) : 0;
 				return !toss;
 			}).join('\n');
-			return clean.trim();
+			const trimmed = clean.trim();
+			const [ type = '' ] = trimmed.split(/\s+/g, 1);
+			const body = trimmed.substr(type.length).trim();
+			return { type, body };
 		}
-		str.split(/(^|\n)#define/).map(cleanDefine).filter(f => f).forEach(this.parseDefine);
+		return splitBy(str, "#define|#include").map(cleanDefine).filter(f => f).forEach(this.parseDefine);
 	}
 
 	read = async (file) => {
@@ -100,16 +129,25 @@ module.exports = class HTDB {
 		}
 	}
 
-	render = async (page = 'index.html') => {
-		if (!Object.keys(this.defines).length) {
-			this.log("Render is doing load..");
-			await this.load();
+	eval = (str = '') => {
+		if (str.includes('#live') || str.includes('${')) {
+			console.log('TODO: eval(', str, ')');
+			return this.substitute(str);
+		} else {
+			return str;
 		}
-		this.log("RENDER", page, this.defines[page] );
-		return this.substitute(this.defines[page] || {});
 	}
 
-	substitute = ({ name, args, body = '' } = {}) => {
+	render = async (page = 'index.html') => {
+		if (!Object.keys(this.defines).length) {
+			//this.log("Render is doing load..");
+			//await this.load();
+		}
+		this.log("RENDER", page, this.defines[page] );
+		return this.eval((this.defines[page] || {}).body);
+	}
+
+	substitute = (body = '') => {
 		const substitute_str = (s, i=0) => {
 			let result = '';
 			while (i < s.length)  {
