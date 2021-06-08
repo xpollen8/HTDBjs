@@ -139,8 +139,9 @@ module.exports = class HTDB {
 	#read = async (file) => {
 		const path = fileToPath(file);
 		try {
-			const fs = require('fs');
-			return fs.readFileSync(path, 'utf-8');
+			const { readFileSync } = require('fs');
+			const { join } = require('path')
+			return readFileSync(join(__dirname, path), 'utf-8');
 		} catch(e) {
 			this.error("HTDB.render", e.message);
 		}
