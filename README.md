@@ -28,6 +28,6 @@ Those documents would support macro expansions, user-written scripting functions
 
 # Why does this exist?
 
-A few people have put significan work into developing HTDB-based websites. As times change, the way the world delivers websites is less via apache and more via serverless methods.
+A few people have put significant work into developing HTDB-based websites. As times change, the way the world delivers websites is less via apache and more via serverless methods.
 
 HTDBjs attempts to bridge these worlds, by allowing a modern nextjs/React application to be able to parse and deliver the older HTDB documents without much fuss.
