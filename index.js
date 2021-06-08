@@ -1,7 +1,7 @@
 // TODO - figure out 'static' and 'macros' persistence
 // perhaps add a '!{}' to not evaluate
+
 module.exports = class HTDB {
-	#file;
 
 	#fileToPath = (file = 'site.htdb') => {
 		const sanitize = require("sanitize-filename");
@@ -11,10 +11,9 @@ module.exports = class HTDB {
 		return `htdb/${clean}`;
 	}
 
-	constructor(file, debug = 0) {
-		this.#file = file;
+	constructor(debug = 0) {
 		this.debug = debug;
-		this.loaded = false;
+		this.loaded = {};
 		this.funcs = {};
 		this.defines = {};
 	}
@@ -81,9 +80,8 @@ module.exports = class HTDB {
 	];
 
 	include = async (file = '') => {
-		const path = this.#fileToPath(file);
-		if (path) {
-			const evalPath = await this.substitute(path);
+		if (file.length) {
+			const evalPath = await this.substitute(file);
 			this.log("INCLUDE", { evalPath });
 			this.parse(await this.#read(evalPath));
 		}
@@ -134,7 +132,7 @@ module.exports = class HTDB {
 				}
 			}
 		} else {
-			this.error("SYNTAX ERROR", { str });
+			this.define({ name: str, body: '' });
 		}
 	}
 
@@ -171,28 +169,61 @@ module.exports = class HTDB {
 	}
 
 	#read = async (file) => {
+		const path = this.#fileToPath(file);
 		try {
 			const fs = require('fs');
-			return fs.readFileSync(this.#fileToPath(file), 'utf-8');
+			return fs.readFileSync(path, 'utf-8');
 		} catch(e) {
 			this.error("HTDB.render", e.message);
 		}
 	}
 
-	load = async () => {
-		if (!this.loaded) {
-			this.parse(await this.#read('static.htdb'));
-			this.parse(await this.#read('macros.htdb'));
-			this.parse(await this.#read(this.#file));
-			this.loaded = true;
+	#load = async (path = '', cache = true) => {
+		if (!cache || !this.loaded[path]) {
+			console.log(`Loading ${path}`);
+			let data;
+			if (!this.loaded[path]) {
+				this.log("NOT YET LOADED", path);
+				data = await this.#read(path);
+			}
+			this.parse(data);
+			if (cache) {
+				this.loaded[path] = {
+					ts: new Date(),
+					data
+				}
+			}
 		}
 	}
 
-	render = async (page = 'index.html') => {
-		if (!Object.keys(this.defines).length) {
-			this.log("Render is doing load..");
-			await this.load();
+	#setup = async (inPath = '') => {
+		let path = inPath;
+		// get into 'dir/dir/dir/doc.html' form
+		if (!path.length) { path = `site/index.html`; }
+		if (!path.includes('/') && path.endsWith('.html')) {
+			path = `site/` + path;
 		}
+		if (!path.endsWith('.html')) {
+			path += `/index.html`;
+		}
+		const lastSlash = path.lastIndexOf('/');
+		const db = path.substr(0, lastSlash);
+		const page = path.substr(lastSlash + 1);
+		const firstLoad = (!Object.keys(this.defines).length);
+		if (!firstLoad) {
+			this.log("RESET DEFINES");
+			this.defines = JSON.parse(JSON.stringify(this.static_defines));
+		} else {
+			await Promise.all(['static.htdb', 'macros.htdb'].map(this.#load));
+			this.log("SET STATIC DEFINES");
+			this.static_defines = JSON.parse(JSON.stringify(this.defines));
+		}
+		await this.#load(`${db}.htdb`, false);
+		return { page };
+	}
+
+	render = async (path = '') => {
+		const { page } = await this.#setup(path);
 		return await this.substitute((this.defines[page] || {}).body || page);
 	}
 
