@@ -182,7 +182,7 @@ module.exports = class HTDB {
 	load = async () => {
 		if (!this.loaded) {
 			this.parse(await this.#read('static.htdb'));
-			//this.parse(await this.#read('macros.htdb'));
+			this.parse(await this.#read('macros.htdb'));
 			this.parse(await this.#read(this.#file));
 			this.loaded = true;
 		}
