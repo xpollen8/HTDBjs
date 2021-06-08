@@ -141,7 +141,7 @@ module.exports = class HTDB {
 		try {
 			const { readFileSync } = require('fs');
 			const { join } = require('path')
-			return readFileSync(join(__dirname, path), 'utf-8');
+			return readFileSync(join(path), 'utf-8');
 		} catch(e) {
 			this.error("HTDB.render", e.message);
 		}
