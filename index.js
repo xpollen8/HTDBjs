@@ -224,6 +224,11 @@ module.exports = class HTDB {
 
 	render = async (path = '') => {
 		const { page } = await this.#setup(path);
+		if (this.prerender) {
+			// hack - all injection of defines after the load
+			// by defining a function by the caller.
+			this.prerender();
+		}
 		return await this.substitute((this.defines[page] || {}).body || page);
 	}
 
