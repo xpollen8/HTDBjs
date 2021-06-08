@@ -1,14 +1,7 @@
-const { parseDbPage } = require('./lib');
+const { parseDbPage, fileToPath } = require('./lib');
+const { morse, itor } = require('./lib/novelty');
 
 module.exports = class HTDB {
-
-	#fileToPath = (file = 'site.htdb') => {
-		const sanitize = require("sanitize-filename");
-		const [ clean ] = file.split(/[;&`'"]/g).join('')	// remove chars we don't want
-			.split('/').map(f => sanitize(f))	// send remaining through sanitizer
-			.filter(f => f && f !== '..').join('/').split(' '); // and take 1st args on split
-		return `htdb/${clean}`;
-	}
 
 	constructor(debug = 0) {
 		this.debug = debug;
@@ -17,6 +10,18 @@ module.exports = class HTDB {
 		this.defines = {};
 	}
 
+	callables = [
+		{ name: 'log', func: this.log },
+		{ name: 'define', func: this.define },
+		{ name: 'eval', func: this.eval },
+		{ name: 'random', func: this.random },
+		{ name: 'getval', func: this.getval },
+		{ name: 'include', func: this.include },
+
+		{ name: 'morse', func: morse },
+		{ name: 'itor', func: itor },
+	];
+
 	log = (...args) => {
 		if (this.debug) {
 			console.log('log', ...args);
@@ -24,32 +29,6 @@ module.exports = class HTDB {
 	}
 
 	error = (...args) => console.error(...args);
-
-	// BEGIN SILLY FUNCTIONS
-
-	morse = (args) => {
-		return `MORSE ${args}`;
-	}
-
-	itor = (val) => {
-		/// https://www.w3resource.com/javascript-exercises/javascript-math-exercise-21.php
-		const num = parseInt(val);
-		if (typeof num !== 'number') { return '0' }
-
-		const digits = String(+num).split("");
-		const key = ["","C","CC","CCC","CD","D","DC","DCC","DCCC","CM",
-			"","X","XX","XXX","XL","L","LX","LXX","LXXX","XC",
-			"","I","II","III","IV","V","VI","VII","VIII","IX"];
-		let roman_num = "";
-		let i = 3;
-		while (i--) {
-			roman_num = (key[+digits.pop() + (i * 10)] || "") + roman_num;
-		}
-		const res = Array(+digits.join("") + 1).join("M") + roman_num;
-		//console.log("ROMAN", { val, res });
-		return res;
-	}
-	// END SILLY FUNCTIONS
 
 	define = ({ name = '', body = '' }) => {
 		if (name.length) {
@@ -67,16 +46,6 @@ module.exports = class HTDB {
 
 	getval = (name) => (this.defines[name] || {}).body;
 
-	callables = [
-		'itor',
-		'log',
-		'define',
-		'eval',
-		'morse',
-		'random',
-		'getval',
-		'include',
-	];
 
 	include = async (file = '') => {
 		if (file.length) {
@@ -168,7 +137,7 @@ module.exports = class HTDB {
 	}
 
 	#read = async (file) => {
-		const path = this.#fileToPath(file);
+		const path = fileToPath(file);
 		try {
 			const fs = require('fs');
 			return fs.readFileSync(path, 'utf-8');
@@ -241,14 +210,14 @@ module.exports = class HTDB {
 						//this.log("BACK", r);
 						return [ i+1, r ];
 					} else {
-						const [ func ] = result.split('(');
-						if (func.length) {
-							if (this.callables.includes(func)) {
-								const args = result.substr(func.length);
-								//console.log("CALL", { func, args });
-								const res = await this[func](args.substr(1, args.length - 2)) ;
-								//console.log("BACK", res);
-								//return [ i+1, this[func](args.substr(1, args.length - 2)) ];
+						const [ funcName ] = result.split('(');
+						if (funcName.length) {
+							const { func } = this.callables.find(c => c.name === funcName) || [];
+							if (func) {
+								const useFunc = this[func] || func.apply(func);
+								const args = result.substr(funcName.length);
+								this.log("CALL", { funcName, args });
+								const res = await func(args.substr(1, args.length - 2)) ;
 								return [ i+1, res ];
 							}
 						}

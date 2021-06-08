@@ -1,5 +1,6 @@
 #define	title(str=Hello) <title>${str}</title>
 #define	welcome <b>Hello world!</b>
 #define index.html
+	${morse(hello world)}
 	${title()}
 	${welcome}
