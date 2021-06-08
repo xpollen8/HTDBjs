@@ -1,6 +1,10 @@
 # HTDBjs
 
-A re-write of the HTDB web management system into Javascript
+A re-write of the HTDB web management system into Javascript.
+
+This is the base HTDBjs class upon which a full-featured project can be built.
+
+If you looking for a starter for running a full HTDB-based website, see the [HTDB-app repository.](https://github.com/xpollen8/HTDB-app)
 
 # Install
 
