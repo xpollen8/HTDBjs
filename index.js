@@ -1,5 +1,4 @@
-// TODO - figure out 'static' and 'macros' persistence
-// perhaps add a '!{}' to not evaluate
+const { parseDbPage } = require('./lib');
 
 module.exports = class HTDB {
 
@@ -179,46 +178,34 @@ module.exports = class HTDB {
 	}
 
 	#load = async (path = '', cache = true) => {
-		if (!cache || !this.loaded[path]) {
+		let data;
+		if (!this.loaded[path]) {
 			console.log(`Loading ${path}`);
-			let data;
-			if (!this.loaded[path]) {
-				this.log("NOT YET LOADED", path);
-				data = await this.#read(path);
+			this.log("NOT YET LOADED", path);
+			data = await this.#read(path);
+			this.loaded[path] = {
+				ts: new Date(),
+				data
 			}
-			this.parse(data);
-			if (cache) {
-				this.loaded[path] = {
-					ts: new Date(),
-					data
-				}
-			}
+		} else {
+			this.log("RE-USE LOADED", path);
+			data = this.loaded[path].data;
 		}
+		this.parse(data);
 	}
 
 	#setup = async (inPath = '') => {
-		let path = inPath;
-		// get into 'dir/dir/dir/doc.html' form
-		if (!path.length) { path = `site/index.html`; }
-		if (!path.includes('/') && path.endsWith('.html')) {
-			path = `site/` + path;
-		}
-		if (!path.endsWith('.html')) {
-			path += `/index.html`;
-		}
-		const lastSlash = path.lastIndexOf('/');
-		const db = path.substr(0, lastSlash);
-		const page = path.substr(lastSlash + 1);
+		const { db, page } = parseDbPage(inPath);
 		const firstLoad = (!Object.keys(this.defines).length);
-		if (!firstLoad) {
-			this.log("RESET DEFINES");
-			this.defines = JSON.parse(JSON.stringify(this.static_defines));
-		} else {
+		if (firstLoad) {
 			await Promise.all(['static.htdb', 'macros.htdb'].map(this.#load));
 			this.log("SET STATIC DEFINES");
 			this.static_defines = JSON.parse(JSON.stringify(this.defines));
+		} else {
+			this.log("RESET DEFINES");
+			this.defines = JSON.parse(JSON.stringify(this.static_defines));
 		}
-		await this.#load(`${db}.htdb`, false);
+		await this.#load(`${db}.htdb`, true);
 		return { page };
 	}
 
