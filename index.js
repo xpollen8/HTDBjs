@@ -4,7 +4,8 @@ const { substr, pretty, linkExternal, index, pluralize, truncAt, replaceText } =
 
 module.exports = class HTDB {
 
-	constructor(debug = 0) {
+	constructor(root = '', debug = 0) {
+		this.root = root;
 		this.debug = debug;
 		this.loaded = {};
 		this.funcs = {};
@@ -170,7 +171,7 @@ module.exports = class HTDB {
 		try {
 			const { readFileSync } = require('fs');
 			const { join } = require('path')
-			return readFileSync(join(path), 'utf-8');
+			return readFileSync(join(this.root, path), 'utf-8');
 		} catch(e) {
 			this.error("HTDB.render", e.message);
 		}
