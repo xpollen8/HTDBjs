@@ -1,6 +1,6 @@
 const { parseDbPage, fileToPath } = require('./lib/util');
 const { morse, itor } = require('./lib/novelty');
-const { substr, pretty, linkExternal } = require('./lib/strings');
+const { substr, pretty, linkExternal, index, pluralize, truncAt, replaceText } = require('./lib/strings');
 
 module.exports = class HTDB {
 
@@ -24,12 +24,14 @@ module.exports = class HTDB {
 		{ name: 'substr', func: substr },
 		{ name: 'pretty', func: pretty },
 		{ name: 'linkExternal', func: linkExternal },
+		{ name: 'index', func: index },
+		{ name: 'pluralize', func: pluralize },
+		{ name: 'truncAt', func: truncAt },
+		{ name: 'replaceText', func: replaceText },
 
 		/* HTDB to simple JS funcs */
 		{ name: 'random', func: (args = '') => parseInt(Math.random() * parseInt(args)) },
 		{ name: 'strlen', func: (args = '') => args.length },
-		{ name: 'upper', func: (args = '') => args.toUpperCase() },
-		{ name: 'lower', func: (args = '') => args.toLowerCase() },
 		{ name: 'shh', func: () => '' },
 		{ name: 'reverse', func: (args = '') => args.split('').reverse().join('') },
 		{ name: 'space2underscore', func: (args = '') => args.replace(/ /g, '_') },
@@ -37,8 +39,13 @@ module.exports = class HTDB {
 		{ name: 'newline2br', func: (args = '') => args.replace(/\n/g, '<br/>') },
 		{ name: 'br2newline', func: (args = '') => args.replace(/\n/g, '<br/>') },
 		{ name: 'cleanString', func: (args = '') => args.trim() },
+		{ name: 'eatWhitespace', func: (args = '') => args.trimStart() },
+		{ name: 'cleanLines', func: (args = '') => args.replace(/\n/, ' ') },
 		{ name: 'stripWhitespace', func: (args = '') => args.trimStart() },
+		{ name: 'lower', func: (args = '') => args.toLowerCase() },
+		{ name: 'upper', func: (args = '') => args.toUpperCase() },
 		{ name: 'makeFileSystemSafe', func: (args = '') => args.replace(/[^a-z\d]/ig, '_') },
+		{ name: 'prettyNumber', func: (args = '') => new Intl.NumberFormat().format(args) },
 
 		// HTDB novelty funcs
 		{ name: 'morse', func: morse },
