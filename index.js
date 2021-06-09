@@ -19,6 +19,7 @@ module.exports = class HTDB {
 		{ name: 'eval', func: this.eval },
 		{ name: 'getval', func: this.getval },
 		{ name: 'include', func: this.include },
+		{ name: 'js', func: (args = '') => eval("(async (getval)=>{"+args.replace(/\\/g, '')+"})(this.getval)") },
 
 		// HTDB string funcs
 		{ name: 'substr', func: substr },
@@ -218,6 +219,17 @@ module.exports = class HTDB {
 	}
 
 	substitute = async (body = '') => {
+		const doFunc = async (result) => {
+			const [ funcName ] = result.split('(');
+			if (funcName.length) {
+				const { func } = this.callables.find(c => c.name === funcName) || [];
+				if (func) {
+					const args = result.substr(funcName.length);
+					return await func(args.substr(1, args.length - 2)) ;
+				}
+			}
+			return '${' + result + '}';
+		}
 		const substitute_str = async (s, i=0) => {
 			let result = '';
 			while (i < s.length)  {
@@ -225,7 +237,29 @@ module.exports = class HTDB {
 					const [ j, r ] = await substitute_str(s, i+2)
 					i = j;
 					result += r;
-				} else if ( s[i] === '}' && s[i + 1] !== '\\') {
+				} else if (result.substr(0, 3) === 'js(') {
+					/*
+						special case: ${js(..........)}
+						we need to parse all of '..........' w/o any substitions
+						so that we can pass it all to our evaluator.
+					 */
+					let parens = 1;
+					let j = i + 1;
+					while (parens && j < s.length) {
+						/*
+							look for the *matching* rparan.
+							YES - this fails if there are mis-matched parens
+							IN JS strings, so be sure to ALWAYS LITERALIZE
+							those in the JS embedded in HTDB script
+						 */
+						if (s[j] === '(' && s[j - 1] !== '\\') { parens += 1; }
+						else if (s[j] === ')' && s[j - 1] !== '\\') { parens -= 1; }
+						result += s[j];	// hump along
+						j += 1;
+					}
+					i = j;
+					return [ i+ 1, await substitute_str(await doFunc(result)) ];
+				} else if ( s[i] === '}' && s[i - 1] !== '\\') {
 					const isFunc = result.trim().match(/^(.+)\(.*\)$/);	// func()|func(...)
 					let lookup;
 					if (isFunc && (lookup = this.funcs[isFunc[1]])) {
@@ -239,18 +273,7 @@ module.exports = class HTDB {
 						//this.log("BACK", r);
 						return [ i+1, r ];
 					} else {
-						const [ funcName ] = result.split('(');
-						if (funcName.length) {
-							const { func } = this.callables.find(c => c.name === funcName) || [];
-							if (func) {
-								const useFunc = this[func] || func.apply(func);
-								const args = result.substr(funcName.length);
-								this.log("CALL", { funcName, args });
-								const res = await func(args.substr(1, args.length - 2)) ;
-								return [ i+1, res ];
-							}
-						}
-						return [ i+1, '${' + result + '}' ];
+						return [ i+1, await doFunc(result) ];
 					}
 				} else {
 					result += s[i];
