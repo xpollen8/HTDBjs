@@ -1,6 +1,6 @@
 {
   "name": "HTDBjs",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "HTDB, but in JS",
   "main": "index.js",
   "scripts": {
@@ -21,5 +21,6 @@
     "sanitize-filename": "^1.6.3"
   },
   "devDependencies": {
+    "jest": "^27.0.4"
   }
 }
