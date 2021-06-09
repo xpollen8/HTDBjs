@@ -1,5 +1,7 @@
-const { parseDbPage, fileToPath } = require('./lib');
+const { parseDbPage, fileToPath } = require('./lib/util');
 const { morse, itor } = require('./lib/novelty');
+const { linkExternal } = require('./lib/core');
+const { substr, pretty, shh, reverse, strlen, space2underscore, newline2br } = require('./lib/strings');
 
 module.exports = class HTDB {
 
@@ -20,6 +22,20 @@ module.exports = class HTDB {
 
 		{ name: 'morse', func: morse },
 		{ name: 'itor', func: itor },
+
+		{ name: 'substr', func: substr },
+		{ name: 'pretty', func: pretty },
+		{ name: 'shh', func: shh },
+		{ name: 'reverse', func: reverse },
+		{ name: 'strlen', func: strlen },
+		{ name: 'space2underscore', func: space2underscore },
+		{ name: 'newline2br', func: newline2br },
+
+		{ name: 'linkExternal', func: linkExternal },
+
+		/* HTDB:JS */
+		{ name: 'upper', func: (args = '') => args.toUpperCase() },
+		{ name: 'lower', func: (args = '') => args.toLowerCase() },
 	];
 
 	log = (...args) => {
