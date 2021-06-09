@@ -230,7 +230,7 @@ module.exports = class HTDB {
 			}
 			return '${' + result + '}';
 		}
-		const substitute_str = async (s, i=0) => {
+		const substitute_str = async (s = '', i=0) => {
 			let result = '';
 			while (i < s.length)  {
 				if (s[i] === '$' && s[i + 1] === '{') {
@@ -244,7 +244,7 @@ module.exports = class HTDB {
 						so that we can pass it all to our evaluator.
 					 */
 					let parens = 1;
-					let j = i + 1;
+					let j = i;
 					while (parens && j < s.length) {
 						/*
 							look for the *matching* rparan.
@@ -258,7 +258,8 @@ module.exports = class HTDB {
 						j += 1;
 					}
 					i = j;
-					return [ i+ 1, await substitute_str(await doFunc(result)) ];
+					const [ k, r ] = await substitute_str(await doFunc(result));
+					return [ i+1, r ];
 				} else if ( s[i] === '}' && s[i - 1] !== '\\') {
 					const isFunc = result.trim().match(/^(.+)\(.*\)$/);	// func()|func(...)
 					let lookup;
