@@ -1,7 +1,6 @@
 const { parseDbPage, fileToPath } = require('./lib/util');
 const { morse, itor } = require('./lib/novelty');
-const { linkExternal } = require('./lib/core');
-const { substr, pretty, shh, reverse, strlen, space2underscore, newline2br } = require('./lib/strings');
+const { substr, pretty, linkExternal } = require('./lib/strings');
 
 module.exports = class HTDB {
 
@@ -13,29 +12,37 @@ module.exports = class HTDB {
 	}
 
 	callables = [
+		// class funcs which map to HTDB funcs
 		{ name: 'log', func: this.log },
 		{ name: 'define', func: this.define },
+		{ name: 'undefine', func: (args = '') => delete this[args] },
 		{ name: 'eval', func: this.eval },
-		{ name: 'random', func: this.random },
 		{ name: 'getval', func: this.getval },
 		{ name: 'include', func: this.include },
 
-		{ name: 'morse', func: morse },
-		{ name: 'itor', func: itor },
-
+		// HTDB string funcs
 		{ name: 'substr', func: substr },
 		{ name: 'pretty', func: pretty },
-		{ name: 'shh', func: shh },
-		{ name: 'reverse', func: reverse },
-		{ name: 'strlen', func: strlen },
-		{ name: 'space2underscore', func: space2underscore },
-		{ name: 'newline2br', func: newline2br },
-
 		{ name: 'linkExternal', func: linkExternal },
 
-		/* HTDB:JS */
+		/* HTDB to simple JS funcs */
+		{ name: 'random', func: (args = '') => parseInt(Math.random() * parseInt(args)) },
+		{ name: 'strlen', func: (args = '') => args.length },
 		{ name: 'upper', func: (args = '') => args.toUpperCase() },
 		{ name: 'lower', func: (args = '') => args.toLowerCase() },
+		{ name: 'shh', func: () => '' },
+		{ name: 'reverse', func: (args = '') => args.split('').reverse().join('') },
+		{ name: 'space2underscore', func: (args = '') => args.replace(/ /g, '_') },
+		{ name: 'underscore2space', func: (args = '') => args.replace(/_/g, ' ') },
+		{ name: 'newline2br', func: (args = '') => args.replace(/\n/g, '<br/>') },
+		{ name: 'br2newline', func: (args = '') => args.replace(/\n/g, '<br/>') },
+		{ name: 'cleanString', func: (args = '') => args.trim() },
+		{ name: 'stripWhitespace', func: (args = '') => args.trimStart() },
+		{ name: 'makeFileSystemSafe', func: (args = '') => args.replace(/[^a-z\d]/ig, '_') },
+
+		// HTDB novelty funcs
+		{ name: 'morse', func: morse },
+		{ name: 'itor', func: itor },
 	];
 
 	log = (...args) => {
@@ -57,8 +64,6 @@ module.exports = class HTDB {
 		this.log("EVAL!", { args, res: eval(new String(args).toString()) });
 		return eval(new String(args).toString());
 	}
-
-	random = (args) => parseInt(Math.random() * parseInt(args));
 
 	getval = (name) => (this.defines[name] || {}).body;
 
