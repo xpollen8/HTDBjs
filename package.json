@@ -18,9 +18,8 @@
   "homepage": "https://github.com/xpollen8/HTDBjs#readme",
   "dependencies": {
     "fs": "0.0.1-security",
+    "mywrap": "git+https://github.com/xpollen8/mywrap.git",
     "sanitize-filename": "^1.6.3"
   },
-  "devDependencies": {
-    "jest": "^27.0.4"
-  }
+  "devDependencies": {}
 }

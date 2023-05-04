@@ -1,6 +1,7 @@
 const { parseDbPage, fileToPath } = require('./lib/util');
 const { morse, itor } = require('./lib/novelty');
 const { substr, pretty, linkExternal, index, pluralize, truncAt, replaceText } = require('./lib/strings');
+const { sql } = require('./lib/ssr');
 
 module.exports = class HTDB {
 
@@ -49,6 +50,9 @@ module.exports = class HTDB {
 		{ name: 'makeFileSystemSafe', func: (args = '') => args.replace(/[^a-z\d]/ig, '_') },
 		{ name: 'prettyNumber', func: (args = '') => new Intl.NumberFormat().format(args) },
 
+		// server-side functions
+		{ name: 'sql', ssr: true, func: (args = '') => sql(this.getval, this.setval, args) },
+
 		// HTDB novelty funcs
 		{ name: 'morse', func: morse },
 		{ name: 'itor', func: itor },
@@ -62,10 +66,11 @@ module.exports = class HTDB {
 
 	error = (...args) => console.error(...args);
 
-	define = ({ name = '', body = '' }) => {
+	define = ({ name = '', body = '', path = '' }) => {
 		if (name.length) {
-			this.log("DEF", { name, body });
-			this.defines[name] = { name, body };
+			this.log("DEF", { path, name, body });
+			this.setval(name, body, path);
+			//this.defines[name] = { path, name, body };
 		}
 	}
 
@@ -74,8 +79,47 @@ module.exports = class HTDB {
 		return eval(new String(args).toString());
 	}
 
-	getval = (name) => (this.defines[name] || {}).body;
+	getval = (name = '') => {
+			return (this.defines[name] || {}).body;
+		const hasObj = name.includes('->');
+		const hasArray = name.includes('[');
+		//console.log("getval", { name, hasObj, hasArray });
+		if (hasObj || hasArray) {
+			if (hasArray && hasObj) {	// blah[0]->field
+				const [ all, lookup, index, field ] = name.match(/(.*)\[(.*)\]->(.*)/);
+				console.log("INDEX", lookup, index, field);
+				return this.defines[lookup][index][field];
+			} else if (hasArray) {	// blah[0]
+			} else {	// blah->field
+			}
+		} else {
+			console.log("RETURN", (this.defines[name] || {}).body);
+			return (this.defines[name] || {}).body;
+		}
+	}
 
+	setval = (name = '', body, path) => {
+		if (!this.defines[name]) { this.defines[name] = { name, path } }
+		//console.log("setval", { name,  });
+			this.defines[name] = { name, body, path };
+		/*
+		const isObj = (typeof body === 'Object');
+		const hasObj = name.includes('->');
+		const hasArray = name.includes('[');
+		console.log("setval", { name, isObj, hasObj, hasArray });
+		if (isObj) {
+			this.defines[name] = { name, body, path };
+		} else if (hasObj || hasArray) {
+			if (hasArray && hasObj) {	// blah[0]->field
+			} else if (hasArray) {	// blah[0]
+			} else {	// blah->field
+			}
+		} else {
+			console.log("SETVAL", name);
+			this.defines[name] = { name, body, path, isObj };
+		}
+		*/
+	}
 
 	include = async (file = '') => {
 		if (file.length) {
@@ -89,52 +133,55 @@ module.exports = class HTDB {
 		TODO:
 			ignore literalized '\)' in functionarglist
 	 */
-	parseDefine = ({ type, body = '' }) => {
-		const instr = (str, regex) => (str.substr(0).match(regex) || {}).index;
-		const whitespace = (str) => instr(str, /[ \t\n]/);
-		const lparen = (str) => instr(str, /\(/);
-		const rparen = (str) => instr(str, /\)/);
+	parseDefine = ({ type, body = '', path }) => {
+		if (type === '#include') {
+			this.include(body);
+		} else {
+			const instr = (str, regex) => (str.substr(0).match(regex) || {}).index;
+			const whitespace = (str) => instr(str, /[ \t\n]/);
+			const lparen = (str) => instr(str, /\(/);
+			const rparen = (str) => instr(str, /\)/);
+			//console.log("parseDefine", { type, body, path, whitespace });
 
-		const str = body.trim();
-		const Lparen = lparen(str);
-		const Rparen = rparen(str);
-		const Whitespace = whitespace(str);
-		if (Whitespace) {
-			if (Whitespace > Lparen && Lparen && Rparen) {
-				if (Lparen < Rparen) {
-					const WhiteAfterParen = (str.substr(Rparen).match(/[ \t\n]/) || {}).index;
-					if (WhiteAfterParen) {
-						// TODO convert body ${name} that are in the args list
-						// to a new form: ${func_arg_name}
-						// so that global substitutions do not clobber them
-						this.log("FUNC", str);
-						const name = str.substr(0, Lparen);
-						const args = str.substr(Lparen + 1, Rparen - (Lparen + 1));
-						const body = str.substr(Rparen + WhiteAfterParen).trim();
-						this.funcs[name] = {
-							name, args, body
+			const str = body.trim();
+			const Lparen = lparen(str);
+			const Rparen = rparen(str);
+			const Whitespace = whitespace(str);
+			if (Whitespace) {
+				if (Whitespace > Lparen && Lparen && Rparen) {
+					if (Lparen < Rparen) {
+						const WhiteAfterParen = (str.substr(Rparen).match(/[ \t\n]/) || {}).index;
+						if (WhiteAfterParen) {
+							// TODO convert body ${name} that are in the args list
+							// to a new form: ${func_arg_name}
+							// so that global substitutions do not clobber them
+							this.log("FUNC", str);
+							const name = str.substr(0, Lparen);
+							const args = str.substr(Lparen + 1, Rparen - (Lparen + 1));
+							const body = str.substr(Rparen + WhiteAfterParen).trim();
+							this.funcs[name] = {
+								name, args, body
+							}
+						} else {
+							this.error("SYNTAX ERROR: function", { str, Rparen, WhiteAfterParen });
 						}
 					} else {
-						this.error("SYNTAX ERROR: function", { str, Rparen, WhiteAfterParen });
+						this.error("SYNTAX ERROR: function", { str });
 					}
 				} else {
-					this.error("SYNTAX ERROR: function", { str });
+					const name = str.substr(0, Whitespace);
+					const body = str.substr(Whitespace).trim();
+					this.define({ name, body, path });
 				}
 			} else {
-				const name = str.substr(0, Whitespace);
-				const body = str.substr(Whitespace).trim();
-				if (type === '#include') {
-					this.include(body);
-				} else {
-					this.define({ name, body });
-				}
+				this.define({ name: str, body: '', path });
 			}
-		} else {
-			this.define({ name: str, body: '' });
 		}
 	}
 
-	parse = (str = '') => {
+	parse = (obj = {}) => {
+		const { path = '', str = '' } = obj;
+		//console.log("PARSE", { path, str });
 		const splitBy = (text, delimiter) => {
 			// https://exceptionshub.com/javascript-and-regex-split-string-and-keep-the-separator.html
 			const delimiterPATTERN = '(' + delimiter + ')';
@@ -152,7 +199,7 @@ module.exports = class HTDB {
 		const cleanDefine = (str = '') => {
 			const clean = str.split('\n').filter(s => {
 				const trimmed = s.trim();
-				this.log("S", { s });
+				//this.log("S", { s });
 				const toss = (trimmed.length <= 1) ||						// keep non-empty lines
 				(trimmed.substr(0, 1) === '#') ?	// eat comments
 					!(['#define', '#include', '#live'].filter(d => trimmed.substr(0, d.length) === d).length) : 0;
@@ -161,27 +208,31 @@ module.exports = class HTDB {
 			const trimmed = clean.trim();
 			const [ type = '' ] = trimmed.split(/\s+/g, 1);
 			const body = trimmed.substr(type.length).trim();
-			return { type, body };
+			return { type, body, path };
 		}
 		return splitBy(str, "#define|#include").map(cleanDefine).filter(f => f).forEach(this.parseDefine);
 	}
 
-	#read = async (file) => {
-		const path = fileToPath(file);
+	#read = async (file = '') => {
+		const useFile = file.includes('.htdb') ? file : `${file}.htdb`;
+		const path = fileToPath(useFile);
 		try {
 			const { readFileSync } = require('fs');
 			const { join } = require('path')
-			this.log("READING", { root: this.root, full: join(this.root, path) });
-			return readFileSync(join(this.root, path), 'utf-8');
+			//console.log("PATH", join(this.root, path));
+			return {
+				path: useFile,
+				str: readFileSync(join(this.root, path), 'utf-8')
+			}
 		} catch(e) {
-			this.error("HTDB.render", e.message);
+			this.error("HTDB.read", e.message);
 		}
 	}
 
-	#load = async (path = '', cache = true) => {
+	load = async (path = '', cache = true) => {
 		let data;
 		if (!this.loaded[path]) {
-			console.log(`Loading ${path}`);
+			//console.log(`Loading ${path}`);
 			this.log("NOT YET LOADED", path);
 			data = await this.#read(path);
 			this.loaded[path] = {
@@ -195,18 +246,30 @@ module.exports = class HTDB {
 		this.parse(data);
 	}
 
+	export = async (path = '', outPath = '') => {
+		await this.load('site');
+		await Promise.all(Object.keys(this.defines).map(async k => {
+			const { body } = this.defines[k];
+			if (body.includes('${')) {
+				const subd = await this.substitute(body);
+				this.setval(k, subd);
+			}
+		}));
+		return this.defines;
+	}
+
 	#setup = async (inPath = '') => {
 		const { db, page } = parseDbPage(inPath);
 		const firstLoad = (!Object.keys(this.defines).length);
 		if (firstLoad) {
-			await Promise.all(['static.htdb', 'macros.htdb'].map(this.#load));
+			await Promise.all(['static.htdb', 'macros.htdb'].map(this.load));
 			this.log("SET STATIC DEFINES");
 			this.static_defines = JSON.parse(JSON.stringify(this.defines));
 		} else {
 			this.log("RESET DEFINES");
 			this.defines = JSON.parse(JSON.stringify(this.static_defines));
 		}
-		await this.#load(`${db}.htdb`, true);
+		await this.load(`${db}.htdb`, true);
 		return { page };
 	}
 
@@ -217,7 +280,8 @@ module.exports = class HTDB {
 			// by defining a function by the caller.
 			this.prerender();
 		}
-		return await this.substitute((this.defines[page] || {}).body || page);
+		const res = await this.substitute((this.defines[page] || {}).body || page);
+		return res;
 	}
 
 	substitute = async (body = '') => {
@@ -232,8 +296,16 @@ module.exports = class HTDB {
 			}
 			return '${' + result + '}';
 		}
+		const depth = {};
 		const substitute_str = async (s = '', i=0) => {
 			let result = '';
+			if (!depth[s]) { depth[s] = 0 }
+			depth[s] += 1;
+			if (depth[s] > 5) {
+				// recursion..
+				console.log("COULD NOT SUB", { s, i})
+				return s;
+			}
 			while (i < s.length)  {
 				if (s[i] === '$' && s[i + 1] === '{') {
 					const [ j, r ] = await substitute_str(s, i+2)
@@ -270,7 +342,7 @@ module.exports = class HTDB {
 						this.log("FUNC", result);
 						const [ j, r ] = await substitute_str(lookup.body)
 						return [ i+1, r ];
-					} else if ((lookup = this.defines[result])) {
+					} else if ((lookup = this.getval(result))) {
 						//this.log("DEF1", result);
 						const [ j, r ] = await substitute_str(lookup.body)
 						//this.log("BACK", r);

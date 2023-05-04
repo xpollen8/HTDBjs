@@ -1,5 +1,7 @@
 (async () => {
 	const HTDBjs = require('../index');
 	const htdb = new HTDBjs(process.cwd(), 0);
-	console.log(await htdb.render());
+	const out = await htdb.export('site');
+	//console.log("DEFS", JSON.stringify(out, null, 4));
+	console.log(out['index.html']?.body);
 })();
