@@ -5,6 +5,7 @@ const { substr, pretty, linkExternal, index, pluralize, truncAt, replaceText } =
 module.exports = class HTDB {
 
 	constructor(root = '', debug = 0) {
+		// need root
 		this.root = root;
 		this.debug = debug;
 		this.loaded = {};
