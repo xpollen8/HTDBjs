@@ -79,10 +79,8 @@ module.exports = class HTDB {
 
 
 	include = async (file = '') => {
-		console.log("#include", { file });
 		if (file.length) {
 			const evalPath = await this.substitute(file);
-			console.log("#path", { evalPath });
 			this.log("INCLUDE", { evalPath });
 			this.parse(await this.#read(evalPath));
 		}
@@ -171,7 +169,6 @@ module.exports = class HTDB {
 
 	#read = async (file) => {
 		const path = fileToPath(file);
-		console.log("#read", { path });
 		try {
 			const { readFileSync } = require('fs');
 			const { join } = require('path')
@@ -185,7 +182,6 @@ module.exports = class HTDB {
 	#load = async (path = '', cache = true) => {
 		let data;
 		if (!this.loaded[path]) {
-			console.log(`Loading ${path}`);
 			this.log("NOT YET LOADED", path);
 			data = await this.#read(path);
 			this.loaded[path] = {
