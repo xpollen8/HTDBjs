@@ -1,6 +1,6 @@
 {
   "name": "HTDBjs",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "HTDB, but in JS",
   "main": "index.js",
   "scripts": {
