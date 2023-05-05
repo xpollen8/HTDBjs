@@ -122,8 +122,10 @@ module.exports = class HTDB {
 	}
 
 	include = async (file = '') => {
+		console.log("#include", { file });
 		if (file.length) {
 			const evalPath = await this.substitute(file);
+			console.log("#evalPath", { evalPath });
 			this.log("INCLUDE", { evalPath });
 			this.parse(await this.#read(evalPath));
 		}
@@ -219,7 +221,10 @@ module.exports = class HTDB {
 		try {
 			const { readFileSync } = require('fs');
 			const { join } = require('path')
-			//console.log("PATH", join(this.root, path));
+			console.log("#read", {
+			        path: useFile,
+							        str: readFileSync(join(this.root, path), 'utf-8')
+											      });
 			return {
 				path: useFile,
 				str: readFileSync(join(this.root, path), 'utf-8')
