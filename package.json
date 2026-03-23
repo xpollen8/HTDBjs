@@ -18,7 +18,7 @@
   "homepage": "https://github.com/xpollen8/HTDBjs#readme",
   "dependencies": {
     "fs": "0.0.1-security",
-    "sanitize-filename": "^1.6.3"
+    "sanitize-filename": "^1.6.4"
   },
   "devDependencies": {
     "jest": "^30.3.0"
